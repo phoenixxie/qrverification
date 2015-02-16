@@ -13,12 +13,10 @@ public class Main
     	System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     	
     	QRGenerator generator = new QRGenerator();
-    	QRCamera camera = new QRCamera();
-    	StatMonitor monitor = new StatMonitor();
+    	QRCollector camera = new QRCollector();
     	
     	generator.start();
     	camera.start();
-    	monitor.start();
     	
     	while (generator.running() && camera.running()) {
 
