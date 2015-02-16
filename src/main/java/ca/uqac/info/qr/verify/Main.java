@@ -31,6 +31,5 @@ public class Main
 		camera.stop();
 		
 		System.exit(0);
-
     }
 }

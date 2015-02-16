@@ -35,7 +35,6 @@ public class QRCollector extends JFrame {
 	private int interval;
 
 	private ZXingReader reader;
-	private VideoCapture camera;
 
 	private boolean running = false;
 
@@ -131,8 +130,9 @@ public class QRCollector extends JFrame {
 			@Override
 			public void windowClosing(WindowEvent e) {
 				running = false;
+				dispose();
 
-				System.err.println("window is closing.");
+				System.err.println("qr collector is closing.");
 			}
 		});
 	}
@@ -150,8 +150,6 @@ public class QRCollector extends JFrame {
 	public void start() {
 		running = true;
 
-		camera = new VideoCapture(0);
-
 		this.setVisible(true);
 
 		new Thread(new CaptureThread()).start();
@@ -162,8 +160,9 @@ public class QRCollector extends JFrame {
 		if (!running) {
 			return;
 		}
-		this.dispose();
+		System.err.println("qr collector is closing.");
 		running = false;
+		this.dispose();
 	}
 
 	public boolean running() {
@@ -171,7 +170,9 @@ public class QRCollector extends JFrame {
 	}
 
 	class CaptureThread implements Runnable {
+
 		public void run() {
+			VideoCapture camera = new VideoCapture(0);
 			camera.open(0);
 			while (!camera.isOpened()) {
 				try {
@@ -223,6 +224,8 @@ public class QRCollector extends JFrame {
 				} catch (InterruptedException e) {
 				}
 			}
+			camera.release();
+			System.err.println("QR capture thread stopped.");
 		}
 	}
 
@@ -274,6 +277,7 @@ public class QRCollector extends JFrame {
 				} catch (InterruptedException e) {
 				}
 			}
+			System.err.println("monitor thread stopped.");
 		}
 
 	}

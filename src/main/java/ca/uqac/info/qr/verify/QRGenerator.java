@@ -92,8 +92,9 @@ public class QRGenerator extends JFrame implements Runnable {
 			@Override
 			public void windowClosing(WindowEvent e) {
 				running = false;
+				dispose();
 
-				System.err.println("window is closing.");
+				System.err.println("qr generator is closing.");
 			}
 		});
 	}
@@ -106,6 +107,7 @@ public class QRGenerator extends JFrame implements Runnable {
 	public void start() {
 		this.setVisible(true);
 
+		running = true;
 		thread = new Thread(this);
 		thread.start();
 	}
@@ -114,6 +116,7 @@ public class QRGenerator extends JFrame implements Runnable {
 		if (!running) {
 			return;
 		}
+		System.err.println("qr generator is closing.");
 		this.dispose();
 		running = false;
 	}
@@ -127,7 +130,6 @@ public class QRGenerator extends JFrame implements Runnable {
 
 		long start, end;
 
-		running = true;
 		while (running) {
 			start = System.currentTimeMillis();
 			String data = reader.readData();
@@ -151,5 +153,7 @@ public class QRGenerator extends JFrame implements Runnable {
 			}
 		}
 		running = false;
+		
+		System.err.println("QR generator thread stopped.");
 	}
 }
