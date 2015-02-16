@@ -1,4 +1,4 @@
-package ca.uqac.info.QRVerification;
+package ca.uqac.info.qr.verify;
 
 import org.opencv.core.Core;
 

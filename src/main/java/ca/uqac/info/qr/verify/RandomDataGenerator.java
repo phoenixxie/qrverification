@@ -1,4 +1,4 @@
-package ca.uqac.info.QRVerification;
+package ca.uqac.info.qr.verify;
 
 import org.apache.commons.lang3.RandomStringUtils;
 

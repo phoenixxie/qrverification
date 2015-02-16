@@ -1,4 +1,4 @@
-package ca.uqac.info.QRVerification;
+package ca.uqac.info.qr.verify;
 
 import java.awt.Color;
 import java.awt.Container;
