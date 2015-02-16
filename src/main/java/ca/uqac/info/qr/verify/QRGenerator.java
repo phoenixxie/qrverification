@@ -10,21 +10,32 @@ import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 
 import net.miginfocom.swing.MigLayout;
 import ca.uqac.lif.qr.ImagePanel;
 import ca.uqac.lif.qr.ZXingWriter;
 
 public class QRGenerator extends JFrame implements Runnable {
+	
 	private static final long serialVersionUID = 2374854394989508087L;
+
+	private static final int[] RATES = {
+		1, 5, 10, 15, 20, 25
+	};
+	
+	private static final int[] SIZES = {
+		30, 100, 200, 300
+	};
+
+	private int rate = RATES[3];
+	private int interval;
 
 	private Thread thread;
 
 	private boolean running = false;
-
-	private int rate = 10;
-	private int interval;
 
 	private int width = 500;
 	
@@ -32,9 +43,8 @@ public class QRGenerator extends JFrame implements Runnable {
 	private RandomDataGenerator reader;
 
 	private ImagePanel image;
-	private JButton btn30;
-	private JButton btn100;
-	private JButton btn300;
+	private JComboBox<Integer> comboRates;
+	private JComboBox<Integer> comboSizes;
 
 	public QRGenerator() {
 		this.setTitle("QR Generator");
@@ -49,40 +59,46 @@ public class QRGenerator extends JFrame implements Runnable {
 		Container panel = getContentPane();
 
 		panel.setBackground(Color.WHITE);
-		panel.setLayout(new MigLayout("", "[160]10[160]10[160]", "[]10[]"));
+		panel.setLayout(new MigLayout("", "[50]10[135]10[50]10[135]", "[]10[]"));
 
 		image = new ImagePanel();
 		image.setPreferredSize(new Dimension(width, width));
-		panel.add(image, "wrap, span 3");
+		panel.add(image, "wrap, span 4");
+		
+		panel.add(new JLabel("Rate:"));
+		comboRates = new JComboBox<Integer>();
+		panel.add(comboRates, "align left");
+		panel.add(new JLabel("Size:"));
+		comboSizes = new JComboBox<Integer>();
+		panel.add(comboSizes, "wrap, align left");
 
-		btn30 = new JButton("30 bytes");
-		btn100 = new JButton("100 bytes");
-		btn300 = new JButton("300 bytes");
-		panel.add(btn30, "align center");
-		panel.add(btn100, "align center");
-		panel.add(btn300, "align center, wrap");
+		int selected = 0;
+		for (int i = 0; i < RATES.length; ++i) {
+			if (RATES[i] == rate) {
+				selected = i;
+			}
+			comboRates.addItem(RATES[i]);
+		}
+		comboRates.setSelectedIndex(selected);
+
+		for (int i = 0; i < SIZES.length; ++i) {
+			comboSizes.addItem(SIZES[i]);
+		}
+		reader.setLength(SIZES[0]);
+		
 		super.pack();
-
-		btn30.addActionListener(new ActionListener() {
+		
+		comboRates.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				reader.setLength(30);
-				InfoCollector.instance.reset();
+				setRate(RATES[comboRates.getSelectedIndex()]);
 			}
 		});
-
-		btn100.addActionListener(new ActionListener() {
+		
+		comboSizes.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				reader.setLength(100);
-				InfoCollector.instance.reset();
-			}
-		});
-
-		btn300.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				reader.setLength(300);
+				reader.setLength(SIZES[comboSizes.getSelectedIndex()]);
 				InfoCollector.instance.reset();
 			}
 		});

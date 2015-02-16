@@ -13,6 +13,7 @@ import java.io.IOException;
 
 import javax.imageio.ImageIO;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
@@ -30,8 +31,11 @@ import ca.uqac.lif.qr.ZXingReader;
 public class QRCollector extends JFrame {
 
 	private static final long serialVersionUID = -1499533648107120558L;
+	private static final int[] RATES = {
+		1, 5, 10, 15, 20, 25, 30
+	};
 
-	private int rate = 30;
+	private int rate = RATES[3];
 	private int interval;
 
 	private ZXingReader reader;
@@ -54,7 +58,11 @@ public class QRCollector extends JFrame {
 	private JTextField labelDuplicated;
 	private JTextField labelTime;
 
+	private JComboBox<String> comboCameras;
+	private JComboBox<Integer> comboRates;
 	private JButton btnReset;
+
+	private int currCameraIndex;
 
 	public QRCollector() {
 		this.setTitle("QR Camera");
@@ -114,9 +122,37 @@ public class QRCollector extends JFrame {
 		labelTime = createTextField();
 		panel.add(labelTime, "wrap, span 2, align right");
 
+		panel.add(new JLabel("Camera:"));
+		comboCameras = new JComboBox<String>();
+		panel.add(comboCameras, "align center");
+		comboRates = new JComboBox<Integer>();
+		panel.add(comboRates, "wrap, align center");
+
 		btnReset = new JButton("Reset");
 		panel.add(btnReset, "gaptop 10, span 3, align center, wrap");
 		super.pack();
+
+		comboCameras.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				currCameraIndex = comboCameras.getSelectedIndex();
+			}
+		});
+		
+		int selected = 0;
+		for (int i = 0; i < RATES.length; ++i) {
+			if (RATES[i] == rate) {
+				selected = i;
+			}
+			comboRates.addItem(RATES[i]);
+		}
+		comboRates.setSelectedIndex(selected);
+		comboRates.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				setRate(RATES[comboRates.getSelectedIndex()]);
+			}
+		});
 
 		btnReset.addActionListener(new ActionListener() {
 			@Override
@@ -150,10 +186,31 @@ public class QRCollector extends JFrame {
 	public void start() {
 		running = true;
 
+		VideoCapture camera = new VideoCapture();
+		int cntCamera = 0;
+		while (true) {
+			boolean exists = camera.open(cntCamera);
+			if (!exists) {
+				break;
+			}
+			String s = "Camera_" + cntCamera + ": "
+					+ camera.get(Highgui.CV_CAP_PROP_FRAME_WIDTH) + "x"
+					+ camera.get(Highgui.CV_CAP_PROP_FRAME_HEIGHT);
+			comboCameras.addItem(s);
+			camera.release();
+			++cntCamera;
+		}
+
 		this.setVisible(true);
 
 		new Thread(new CaptureThread()).start();
 		new Thread(new MonitorThread()).start();
+	}
+
+	public void setRate(int rate) {
+		this.rate = rate;
+		this.interval = 1000 / rate;
+		System.err.println("Rate is changed to " + rate);
 	}
 
 	public void stop() {
@@ -172,20 +229,20 @@ public class QRCollector extends JFrame {
 	class CaptureThread implements Runnable {
 
 		public void run() {
-			VideoCapture camera = new VideoCapture(0);
-			camera.open(0);
-			while (!camera.isOpened()) {
-				try {
-					Thread.sleep(100);
-				} catch (InterruptedException e) {
-				}
-			}
+			int cameraIndex = 0;
+			VideoCapture camera = new VideoCapture(cameraIndex);
 
 			long start, end;
 			Mat frame = new Mat();
 			MatOfByte buf = new MatOfByte();
 
 			while (running) {
+				if (cameraIndex != currCameraIndex) {
+					camera.release();
+					camera = new VideoCapture(currCameraIndex);
+					cameraIndex = currCameraIndex;
+				}
+
 				start = System.currentTimeMillis();
 
 				camera.read(frame);
