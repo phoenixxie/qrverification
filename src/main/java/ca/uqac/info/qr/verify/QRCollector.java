@@ -10,6 +10,8 @@ import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.imageio.ImageIO;
 import javax.swing.JButton;
@@ -22,6 +24,7 @@ import net.miginfocom.swing.MigLayout;
 
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
+import org.opencv.core.Rect;
 import org.opencv.highgui.Highgui;
 import org.opencv.highgui.VideoCapture;
 
@@ -31,9 +34,7 @@ import ca.uqac.lif.qr.ZXingReader;
 public class QRCollector extends JFrame {
 
 	private static final long serialVersionUID = -1499533648107120558L;
-	private static final int[] RATES = {
-		1, 5, 10, 15, 20, 25, 30
-	};
+	private static final int[] RATES = { 1, 5, 10, 15, 20, 25, 30 };
 
 	private int rate = RATES[3];
 	private int interval;
@@ -64,8 +65,18 @@ public class QRCollector extends JFrame {
 
 	private int currCameraIndex;
 
+	private class CameraConfig {
+		public int index;
+		public int width;
+		public int height;
+	}
+
+	private List<CameraConfig> cameraConfigs;
+
 	public QRCollector() {
 		this.setTitle("QR Camera");
+
+		cameraConfigs = new ArrayList<CameraConfig>();
 
 		reader = new ZXingReader();
 		interval = 1000 / rate;
@@ -138,7 +149,7 @@ public class QRCollector extends JFrame {
 				currCameraIndex = comboCameras.getSelectedIndex();
 			}
 		});
-		
+
 		int selected = 0;
 		for (int i = 0; i < RATES.length; ++i) {
 			if (RATES[i] == rate) {
@@ -183,20 +194,49 @@ public class QRCollector extends JFrame {
 		return f;
 	}
 
+	private void testResolution(VideoCapture camera, int index, int newWidth,
+			int newHeight) {
+		if (camera.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, newWidth)
+				&& camera.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, newHeight)) {
+			double width = camera.get(Highgui.CV_CAP_PROP_FRAME_WIDTH);
+			double height = camera.get(Highgui.CV_CAP_PROP_FRAME_HEIGHT);
+
+			if (Math.abs(width - newWidth) < 0.0001
+					&& Math.abs(height - newHeight) < 0.0001) {
+				CameraConfig config = new CameraConfig();
+				config.index = index;
+				config.width = newWidth;
+				config.height = newHeight;
+				String s = "Camera_" + index + ": " + newWidth + "x"
+						+ newHeight;
+				cameraConfigs.add(config);
+				comboCameras.addItem(s);
+			}
+		}
+	}
+
 	public void start() {
 		running = true;
 
 		VideoCapture camera = new VideoCapture();
+		cameraConfigs.clear();
+		comboCameras.removeAllItems();
+
 		int cntCamera = 0;
 		while (true) {
 			boolean exists = camera.open(cntCamera);
 			if (!exists) {
 				break;
 			}
-			String s = "Camera_" + cntCamera + ": "
-					+ camera.get(Highgui.CV_CAP_PROP_FRAME_WIDTH) + "x"
-					+ camera.get(Highgui.CV_CAP_PROP_FRAME_HEIGHT);
-			comboCameras.addItem(s);
+
+			testResolution(camera, cntCamera, 1920, 1080);
+			testResolution(camera, cntCamera, 1280, 1024);
+			testResolution(camera, cntCamera, 1280, 800);
+			testResolution(camera, cntCamera, 1280, 720);
+			testResolution(camera, cntCamera, 1024, 768);
+			testResolution(camera, cntCamera, 800, 600);
+			testResolution(camera, cntCamera, 640, 480);
+
 			camera.release();
 			++cntCamera;
 		}
@@ -230,34 +270,48 @@ public class QRCollector extends JFrame {
 
 		public void run() {
 			int cameraIndex = 0;
-			VideoCapture camera = new VideoCapture(cameraIndex);
+			CameraConfig config = cameraConfigs.get(cameraIndex);
+
+			VideoCapture camera = new VideoCapture(config.index);
+			camera.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, config.width);
+			camera.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, config.height);
 
 			long start, end;
 			Mat frame = new Mat();
+			Rect region = new Rect((config.width - width) / 2, (config.height - width) / 2, width, width);
 			MatOfByte buf = new MatOfByte();
 
 			while (running) {
 				if (cameraIndex != currCameraIndex) {
-					camera.release();
-					camera = new VideoCapture(currCameraIndex);
+					CameraConfig newConfig = cameraConfigs.get(currCameraIndex);
+					if (newConfig.index != config.index) {
+						camera.release();
+						camera = new VideoCapture(newConfig.index);
+					}
+					config = newConfig;
+					camera.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, config.width);
+					camera.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, config.height);
+					region = new Rect((config.width - width) / 2, (config.height - width) / 2, width, width);
+
 					cameraIndex = currCameraIndex;
 				}
 
 				start = System.currentTimeMillis();
 
 				camera.read(frame);
-				Highgui.imencode(".png", frame, buf);
+				InfoCollector.instance.recordCaptured();
+
+				Mat cropped = frame.submat(region);
+				Highgui.imencode(".bmp", cropped, buf);
 				byte[] bytes = buf.toArray();
 				ByteArrayInputStream in = new ByteArrayInputStream(bytes);
 				BufferedImage img = null;
 
 				try {
 					img = ImageIO.read(in);
-					InfoCollector.instance.recordCaptured();
 				} catch (IOException e2) {
 					img = null;
 				}
-
 				if (img != null) {
 					image.setImage(img);
 					image.repaint();
@@ -266,7 +320,6 @@ public class QRCollector extends JFrame {
 						InfoCollector.instance.recordDecoded(msg);
 					}
 				}
-
 				try {
 					in.close();
 				} catch (IOException e) {
