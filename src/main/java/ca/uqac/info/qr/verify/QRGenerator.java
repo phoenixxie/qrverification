@@ -14,21 +14,21 @@ import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 
+import org.imgscalr.Scalr;
+
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+
 import net.miginfocom.swing.MigLayout;
 import ca.uqac.lif.qr.ImagePanel;
 import ca.uqac.lif.qr.ZXingWriter;
 
 public class QRGenerator extends JFrame implements Runnable {
-	
+
 	private static final long serialVersionUID = 2374854394989508087L;
 
-	private static final int[] RATES = {
-		1, 5, 10, 15, 20, 25
-	};
-	
-	private static final int[] SIZES = {
-		30, 100, 200, 300
-	};
+	private static final int[] RATES = { 1, 5, 10, 15, 20, 25 };
+
+	private static final int[] SIZES = { 30, 100, 200, 300, 500, 563 };
 
 	private int rate = RATES[3];
 	private int interval;
@@ -36,9 +36,10 @@ public class QRGenerator extends JFrame implements Runnable {
 	private Thread thread;
 
 	private boolean running = false;
+	private boolean pause = false;
 
-	private int width = 500;
-	
+	private int width = 700;
+
 	private ZXingWriter writer;
 	private RandomDataGenerator reader;
 
@@ -53,7 +54,8 @@ public class QRGenerator extends JFrame implements Runnable {
 
 		writer = new ZXingWriter();
 		writer.setCodeSize(width);
-		
+		writer.setErrorCorrectionLevel(ErrorCorrectionLevel.L);
+
 		reader = new RandomDataGenerator();
 
 		Container panel = getContentPane();
@@ -64,7 +66,7 @@ public class QRGenerator extends JFrame implements Runnable {
 		image = new ImagePanel();
 		image.setPreferredSize(new Dimension(width, width));
 		panel.add(image, "wrap, span 4");
-		
+
 		panel.add(new JLabel("Rate:"));
 		comboRates = new JComboBox<Integer>();
 		panel.add(comboRates, "align left");
@@ -85,16 +87,16 @@ public class QRGenerator extends JFrame implements Runnable {
 			comboSizes.addItem(SIZES[i]);
 		}
 		reader.setLength(SIZES[0]);
-		
+
 		super.pack();
-		
+
 		comboRates.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				setRate(RATES[comboRates.getSelectedIndex()]);
 			}
 		});
-		
+
 		comboSizes.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -118,6 +120,40 @@ public class QRGenerator extends JFrame implements Runnable {
 	public void setRate(int rate) {
 		this.rate = rate;
 		this.interval = 1000 / rate;
+
+		if (rate != RATES[comboRates.getSelectedIndex()]) {
+			int i = 0;
+			for (; i < RATES.length; ++i) {
+				if (rate == RATES[i]) {
+					comboRates.setSelectedIndex(i);
+					break;
+				}
+			}
+			if (i == RATES.length) {
+				comboRates.setEnabled(false);
+			}
+		}
+	}
+
+	public void setSize(int size) {
+		reader.setLength(size);
+
+		if (size != SIZES[comboSizes.getSelectedIndex()]) {
+			int i = 0;
+			for (; i < SIZES.length; ++i) {
+				if (size == SIZES[i]) {
+					comboSizes.setSelectedIndex(i);
+					break;
+				}
+			}
+			if (i == SIZES.length) {
+				comboSizes.setEnabled(false);
+			}
+		}
+	}
+
+	public void setErrorCorrectionLevel(ErrorCorrectionLevel level) {
+		writer.setErrorCorrectionLevel(level);
 	}
 
 	public void start() {
@@ -126,6 +162,14 @@ public class QRGenerator extends JFrame implements Runnable {
 		running = true;
 		thread = new Thread(this);
 		thread.start();
+	}
+
+	public void pause() {
+		pause = true;
+	}
+
+	public void resume() {
+		pause = false;
 	}
 
 	public void stop() {
@@ -148,16 +192,20 @@ public class QRGenerator extends JFrame implements Runnable {
 
 		while (running) {
 			start = System.currentTimeMillis();
-			String data = reader.readData();
-			if (data == null) {
-				continue;
-			}
-			int id = gen.id();
-			BufferedImage img = writer.getCode(id + " " + data);
-			image.setImage(img);
-			image.repaint();
 
-			InfoCollector.instance().recordSent(id, data);
+			if (!pause) {
+				String data = reader.readData();
+				if (data == null) {
+					continue;
+				}
+
+				int id = gen.id();
+				BufferedImage img = writer.getCode(id + " " + data);
+				image.setImage(Scalr.resize(img, width));
+				image.repaint();
+
+				InfoCollector.instance().recordSent(id, data);
+			}
 
 			end = System.currentTimeMillis();
 			end -= start;
@@ -169,7 +217,7 @@ public class QRGenerator extends JFrame implements Runnable {
 			}
 		}
 		running = false;
-		
+
 		System.err.println("QR generator thread stopped.");
 	}
 }

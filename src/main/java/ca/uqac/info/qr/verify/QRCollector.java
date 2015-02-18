@@ -3,6 +3,7 @@ package ca.uqac.info.qr.verify;
 import java.awt.Color;
 import java.awt.Container;
 import java.awt.Dimension;
+import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
@@ -20,6 +21,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 
+import net.coobird.thumbnailator.Thumbnails;
 import net.miginfocom.swing.MigLayout;
 
 import org.opencv.core.Mat;
@@ -43,7 +45,8 @@ public class QRCollector extends JFrame {
 
 	private boolean running = false;
 
-	private int width = 500;
+	private int frameWidth = 700;
+	private int previewWidth = 300;
 
 	private ImagePanel image;
 	private JTextField labelSent;
@@ -65,13 +68,14 @@ public class QRCollector extends JFrame {
 
 	private int currCameraIndex;
 
-	private class CameraConfig {
+	public static class CameraConfig {
 		public int index;
 		public int width;
 		public int height;
 	}
 
 	private List<CameraConfig> cameraConfigs;
+	private CameraConfig desiredCameraConfig;
 
 	public QRCollector() {
 		this.setTitle("QR Camera");
@@ -80,14 +84,16 @@ public class QRCollector extends JFrame {
 
 		reader = new ZXingReader();
 		interval = 1000 / rate;
+		currCameraIndex = 0;
+		desiredCameraConfig = null;
 
 		Container panel = getContentPane();
 
 		panel.setBackground(Color.WHITE);
-		panel.setLayout(new MigLayout("insets 10", "[160]10[160]10[160]"));
+		panel.setLayout(new MigLayout("insets 10", "[60]10[60]10[60]"));
 
 		image = new ImagePanel();
-		image.setPreferredSize(new Dimension(width, width));
+		image.setPreferredSize(new Dimension(previewWidth, previewWidth));
 		panel.add(image, "wrap, span 3");
 
 		panel.add(new JLabel("Sent:"));
@@ -211,6 +217,14 @@ public class QRCollector extends JFrame {
 						+ newHeight;
 				cameraConfigs.add(config);
 				comboCameras.addItem(s);
+
+				if (desiredCameraConfig != null
+						&& desiredCameraConfig.index == config.index
+						&& desiredCameraConfig.width == config.width
+						&& desiredCameraConfig.height == config.height) {
+					currCameraIndex = cameraConfigs.size() - 1;
+					comboCameras.setSelectedIndex(cameraConfigs.size() - 1);
+				}
 			}
 		}
 	}
@@ -247,10 +261,33 @@ public class QRCollector extends JFrame {
 		new Thread(new MonitorThread()).start();
 	}
 
+	public void setDesiredCameraConfig(CameraConfig config) {
+		desiredCameraConfig = config;
+		int n = 0;
+		for (CameraConfig c : cameraConfigs) {
+			if (c.index == config.index && c.width == config.width
+					&& c.height == config.height) {
+				currCameraIndex = n;
+				comboCameras.setSelectedIndex(n);
+				break;
+			}
+			++n;
+		}
+	}
+
 	public void setRate(int rate) {
 		this.rate = rate;
 		this.interval = 1000 / rate;
 		System.err.println("Rate is changed to " + rate);
+		
+		if (rate != RATES[comboRates.getSelectedIndex()]) {
+			for (int i = 0; i < RATES.length; ++i) {
+				if (rate == RATES[i]) {
+					comboRates.setSelectedIndex(i);
+					break;
+				}
+			}
+		}
 	}
 
 	public void stop() {
@@ -269,7 +306,7 @@ public class QRCollector extends JFrame {
 	class CaptureThread implements Runnable {
 
 		public void run() {
-			int cameraIndex = 0;
+			int cameraIndex = currCameraIndex;
 			CameraConfig config = cameraConfigs.get(cameraIndex);
 
 			VideoCapture camera = new VideoCapture(config.index);
@@ -278,7 +315,8 @@ public class QRCollector extends JFrame {
 
 			long start, end;
 			Mat frame = new Mat();
-			Rect region = new Rect((config.width - width) / 2, (config.height - width) / 2, width, width);
+			Rect region = new Rect((config.width - frameWidth) / 2,
+					(config.height - frameWidth) / 2, frameWidth, frameWidth);
 			MatOfByte buf = new MatOfByte();
 
 			while (running) {
@@ -291,7 +329,9 @@ public class QRCollector extends JFrame {
 					config = newConfig;
 					camera.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, config.width);
 					camera.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, config.height);
-					region = new Rect((config.width - width) / 2, (config.height - width) / 2, width, width);
+					region = new Rect((config.width - frameWidth) / 2,
+							(config.height - frameWidth) / 2, frameWidth,
+							frameWidth);
 
 					cameraIndex = currCameraIndex;
 				}
@@ -313,8 +353,14 @@ public class QRCollector extends JFrame {
 					img = null;
 				}
 				if (img != null) {
-					image.setImage(img);
-					image.repaint();
+					try {
+						image.setImage(Thumbnails.of(img)
+								.forceSize(previewWidth, previewWidth)
+								.asBufferedImage());
+						image.repaint();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 					String msg = reader.readCode(img);
 					if (msg != null) {
 						InfoCollector.instance.recordDecoded(msg);
