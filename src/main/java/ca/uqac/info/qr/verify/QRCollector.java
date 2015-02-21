@@ -24,11 +24,13 @@ import javax.swing.JTextField;
 import net.coobird.thumbnailator.Thumbnails;
 import net.miginfocom.swing.MigLayout;
 
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.Rect;
 import org.opencv.highgui.Highgui;
 import org.opencv.highgui.VideoCapture;
+import org.opencv.imgproc.Imgproc;
 
 import ca.uqac.lif.qr.ImagePanel;
 import ca.uqac.lif.qr.ZXingReader;
@@ -45,7 +47,7 @@ public class QRCollector extends JFrame {
 
 	private boolean running = false;
 
-	private int frameWidth = 700;
+	private int frameWidth = 800;
 	private int previewWidth = 300;
 
 	private ImagePanel image;
@@ -279,7 +281,7 @@ public class QRCollector extends JFrame {
 		this.rate = rate;
 		this.interval = 1000 / rate;
 		System.err.println("Rate is changed to " + rate);
-		
+
 		if (rate != RATES[comboRates.getSelectedIndex()]) {
 			for (int i = 0; i < RATES.length; ++i) {
 				if (rate == RATES[i]) {
@@ -315,6 +317,9 @@ public class QRCollector extends JFrame {
 
 			long start, end;
 			Mat frame = new Mat();
+			Mat frameGray = new Mat();
+			Mat frameBW = new Mat(frameWidth, frameWidth, CvType.CV_8UC1);
+
 			Rect region = new Rect((config.width - frameWidth) / 2,
 					(config.height - frameWidth) / 2, frameWidth, frameWidth);
 			MatOfByte buf = new MatOfByte();
@@ -341,8 +346,12 @@ public class QRCollector extends JFrame {
 				camera.read(frame);
 				InfoCollector.instance.recordCaptured();
 
-				Mat cropped = frame.submat(region);
-				Highgui.imencode(".bmp", cropped, buf);
+				Imgproc.cvtColor(frame, frameGray, Imgproc.COLOR_BGR2GRAY);
+				Mat cropped = frameGray.submat(region);
+				Imgproc.threshold(cropped, frameBW, 123, 255,
+						Imgproc.THRESH_BINARY);
+
+				Highgui.imencode(".bmp", frameBW, buf);
 				byte[] bytes = buf.toArray();
 				ByteArrayInputStream in = new ByteArrayInputStream(bytes);
 				BufferedImage img = null;

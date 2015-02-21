@@ -166,6 +166,8 @@ public class InfoCollector {
 	}
 
 	public void recordDecoded(String message) {
+		++info.decoded;
+
 		int pos = message.indexOf(' ');
 		if (pos == -1) {
 			return;
@@ -177,10 +179,8 @@ public class InfoCollector {
 			return;
 		}
 		String msg = message.substring(pos + 1);
-		
+
 		synchronized (this) {
-			++info.decoded;
-			
 			if (seq == lastSeq) {
 				++info.duplicated;
 				return;
@@ -205,7 +205,7 @@ public class InfoCollector {
 					if (msg.equals(m.message)) {
 						++info.matched;
 					}
-					
+
 					lastSeq = seq;
 					break;
 				}

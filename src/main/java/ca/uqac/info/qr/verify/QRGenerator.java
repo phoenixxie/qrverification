@@ -9,10 +9,12 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.border.Border;
 
 import org.imgscalr.Scalr;
 
@@ -38,7 +40,7 @@ public class QRGenerator extends JFrame implements Runnable {
 	private boolean running = false;
 	private boolean pause = false;
 
-	private int width = 700;
+	private int width = 800;
 
 	private ZXingWriter writer;
 	private RandomDataGenerator reader;
@@ -65,6 +67,7 @@ public class QRGenerator extends JFrame implements Runnable {
 
 		image = new ImagePanel();
 		image.setPreferredSize(new Dimension(width, width));
+		image.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
 		panel.add(image, "wrap, span 4");
 
 		panel.add(new JLabel("Rate:"));
