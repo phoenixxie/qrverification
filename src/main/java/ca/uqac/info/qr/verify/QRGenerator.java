@@ -16,6 +16,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.border.Border;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.imgscalr.Scalr;
 
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
@@ -28,9 +29,10 @@ public class QRGenerator extends JFrame implements Runnable {
 
 	private static final long serialVersionUID = 2374854394989508087L;
 
-	private static final int[] RATES = { 1, 5, 10, 15, 20, 25 };
+	private static final int[] RATES = { 2, 4, 6, 8, 10 };
 
-	private static final int[] SIZES = { 30, 100, 200, 300, 500, 563 };
+	private static final int[] SIZES = { 63, 125, 188, 250, 313, 375, 438, 500,
+			563 };
 
 	private int rate = RATES[3];
 	private int interval;
@@ -40,7 +42,7 @@ public class QRGenerator extends JFrame implements Runnable {
 	private boolean running = false;
 	private boolean pause = false;
 
-	private int width = 800;
+	private int width = 600;
 
 	private ZXingWriter writer;
 	private RandomDataGenerator reader;
@@ -124,6 +126,8 @@ public class QRGenerator extends JFrame implements Runnable {
 		this.rate = rate;
 		this.interval = 1000 / rate;
 
+		System.err.println("Generation rate is set to " + rate);
+
 		if (rate != RATES[comboRates.getSelectedIndex()]) {
 			int i = 0;
 			for (; i < RATES.length; ++i) {
@@ -193,28 +197,47 @@ public class QRGenerator extends JFrame implements Runnable {
 
 		long start, end;
 
+		int maxretry = 1;
+		int retry = 0;
+		int id = 0;
+		String data = null;
+		String[] prefixs = { "Z", "op", "789" };
+
 		while (running) {
 			start = System.currentTimeMillis();
 
 			if (!pause) {
-				String data = reader.readData();
-				if (data == null) {
-					continue;
-				}
+				if (retry == 0) {
+					data = reader.readData();
+					if (data == null) {
+						continue;
+					}
 
-				int id = gen.id();
-				BufferedImage img = writer.getCode(id + " " + data);
+					id = gen.id();
+					++retry;
+				} else {
+					if (retry >= maxretry) {
+						retry = 0;
+					} else {
+						++retry;
+					}
+				}
+				BufferedImage img = writer.getCode(prefixs[retry] + " " + id
+						+ " " + data);
 				image.setImage(Scalr.resize(img, width));
 				image.repaint();
-
 				InfoCollector.instance().recordSent(id, data);
 			}
 
 			end = System.currentTimeMillis();
 			end -= start;
+			int intval = interval;
+			if (maxretry > 0) {
+				intval /= (maxretry + 1);
+			}
 			try {
-				if (end < interval) {
-					Thread.sleep(interval - end);
+				if (end < intval) {
+					Thread.sleep(intval - end);
 				}
 			} catch (InterruptedException e) {
 			}

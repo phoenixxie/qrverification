@@ -13,24 +13,26 @@ public class Main {
 		System.err.println("Working Directory = "
 				+ System.getProperty("user.dir"));
 
-		InfoCollector.instance().setFileNamePrefix("test_");
+//		InfoCollector.instance().setFileNamePrefix("test_");
 		InfoCollector.instance().start();
 		
 		QRGenerator generator = new QRGenerator();
-		QRCollector camera = new QRCollector();
+		QRCollector camera1 = new QRCollector();
+//		QRCollector camera2 = new QRCollector();
 		
-		QRCollector.CameraConfig config = new QRCollector.CameraConfig();
-		config.index = 1;
-		config.width = 1920;
-		config.height = 1080;
-		
-		camera.setDesiredCameraConfig(config);
-		camera.setRate(30);
+		int idxConfig1 = CameraManager.instance().findConfig(1, 1920, 1080);
+//		int idxConfig2 = CameraManager.instance().findConfig(2, 1280, 720);
+	
+		camera1.setDesiredCameraConfig(idxConfig1);
+		camera1.setRate(30);
+//		camera2.setDesiredCameraConfig(idxConfig2);
+//		camera2.setRate(30);
 
 		generator.start();
-		camera.start();
+//		camera2.start();
+		camera1.start();
 
-		while (generator.running() && camera.running()) {
+		while (generator.running() && camera1.running()) {
 
 			try {
 				Thread.sleep(500);
@@ -40,7 +42,9 @@ public class Main {
 
 		System.err.println("exiting.");
 		generator.stop();
-		camera.stop();
+		camera1.stop();
+//		camera2.stop();
+
 		InfoCollector.instance().stop();
 
 		System.exit(0);

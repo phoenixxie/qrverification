@@ -65,7 +65,7 @@ public class InfoCollector {
 	}
 
 	Info info;
-	BlockingQueue<Message> queue;
+//	BlockingQueue<Message> queue;
 	int lastSeq;
 	FileWriter csvWriter;
 	String fileNamePrefix;
@@ -73,7 +73,7 @@ public class InfoCollector {
 
 	private InfoCollector() {
 		info = new Info();
-		queue = new ArrayBlockingQueue<Message>(300);
+//		queue = new ArrayBlockingQueue<Message>(300);
 		csvWriter = null;
 		fileNamePrefix = "";
 		running = false;
@@ -126,7 +126,8 @@ public class InfoCollector {
 	}
 
 	public synchronized void reset() {
-		queue.clear();
+		lastSeq = -1;
+//		queue.clear();
 		info = new Info();
 
 		setFileNamePrefix(fileNamePrefix);
@@ -154,11 +155,11 @@ public class InfoCollector {
 
 	public synchronized void recordSent(int seq, String message) {
 		++info.sent;
-		if (queue.remainingCapacity() == 0) {
-			queue.poll();
-			++info.missed;
-		}
-		queue.offer(new Message(seq, message));
+//		if (queue.remainingCapacity() == 0) {
+//			queue.poll();
+//			++info.missed;
+//		}
+//		queue.offer(new Message(seq, message));
 	}
 
 	public synchronized void recordCaptured() {
@@ -168,50 +169,66 @@ public class InfoCollector {
 	public void recordDecoded(String message) {
 		++info.decoded;
 
-		int pos = message.indexOf(' ');
-		if (pos == -1) {
+		int start = message.indexOf(' ');
+		if (start == -1) {
 			return;
 		}
+		int end = message.indexOf(' ', start + 1);
+		if (end == -1) {
+			return;
+		}
+		
 		int seq = -1;
 		try {
-			seq = Integer.parseInt(message.substring(0, pos));
+			seq = Integer.parseInt(message.substring(start + 1, end ));
 		} catch (NumberFormatException e) {
 			return;
 		}
-		String msg = message.substring(pos + 1);
+
+		String msg = message.substring(start + 1);
 
 		synchronized (this) {
-			if (seq == lastSeq) {
+			if (lastSeq == -1) {
+				lastSeq = seq;
+				++info.matched;
+			} else if (seq == lastSeq) {
 				++info.duplicated;
-				return;
+			} else if (seq > lastSeq) {
+				++info.matched;
+				if (seq > lastSeq + 1) {
+					info.missed += seq - lastSeq - 1;
+				}
+				lastSeq = seq;
+			} else {
+				System.err.println("Weird... seq < lastSeq...");
 			}
 
-			Message m = null;
-			do {
-				m = queue.peek();
-				if (m == null) {
-					return;
-				}
-
-				if (seq > m.seq) {
-					queue.poll();
-					++info.missed;
-					continue;
-				}
-
-				if (seq == m.seq) {
-					queue.poll();
-
-					if (msg.equals(m.message)) {
-						++info.matched;
-					}
-
-					lastSeq = seq;
-					break;
-				}
-
-				return;
-			} while (true);
+//			Message m = null;
+//			do {
+//				m = queue.peek();
+//				if (m == null) {
+//					return;
+//				}
+//
+//				if (seq > m.seq) {
+//					queue.poll();
+//					++info.missed;
+//					continue;
+//				}
+//
+//				if (seq == m.seq) {
+//					queue.poll();
+//
+//					if (msg.equals(m.message)) {
+//						++info.matched;
+//					}
+//
+//					lastSeq = seq;
+//					break;
+//				}
+//
+//				return;
+//			} while (true);
 		}
 	}
 
