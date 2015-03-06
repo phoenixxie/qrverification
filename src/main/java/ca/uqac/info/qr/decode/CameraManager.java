@@ -1,4 +1,4 @@
-package ca.uqac.info.qr.verify;
+package ca.uqac.info.qr.decode;
 
 import java.util.ArrayList;
 import java.util.List;

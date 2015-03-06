@@ -1,6 +1,11 @@
-package ca.uqac.info.qr.verify;
+package ca.uqac.info.qr;
 
 import org.opencv.core.Core;
+
+import ca.uqac.info.qr.decode.CameraManager;
+import ca.uqac.info.qr.decode.Stat;
+import ca.uqac.info.qr.decode.QRCollector;
+import ca.uqac.info.qr.encode.QRGenerator;
 
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 
@@ -11,7 +16,8 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 public class AutoTest {
 	static final int[] CODESIZE = { 63, 125, 188, 250, 313, 375, 438, 500, 563 };
 
-	static final int[] CODEFPS = { 2, 4, 6, 8, 10 };
+//	static final int[] CODEFPS = { 2, 4, 6, 8, 10, 12, 14, 16 };
+	static final int[] CODEFPS = { 10, 12, 14, 16 };
 	
 	static final String[] LEVELS = { "L", "H" };
 
@@ -21,7 +27,7 @@ public class AutoTest {
 		System.err.println("Working Directory = "
 				+ System.getProperty("user.dir"));
 
-		InfoCollector.instance().start();
+		Stat.instance().start();
 		QRGenerator generator = new QRGenerator();
 		QRCollector camera = new QRCollector();
 
@@ -46,7 +52,7 @@ public class AutoTest {
 							", fps " + fps +
 							", level " + level);
 					
-					generator.setSize(size);
+					generator.setLength(size);
 					generator.setRate(fps);
 					if (level.equals("H")) {
 						generator
@@ -64,8 +70,8 @@ public class AutoTest {
 					}
 					System.err.println("Start testing for 90 seconds");
 
-					InfoCollector.instance().reset();
-					InfoCollector.instance().setFileNamePrefix(
+					Stat.instance().reset();
+					Stat.instance().setFileNamePrefix(
 							"QR_" + size + "_" + fps + "_" + level + "_");
 					try {
 						Thread.sleep(1000 * 90);
@@ -79,7 +85,7 @@ public class AutoTest {
 						Thread.sleep(1000 * 5);
 					} catch (InterruptedException e) {
 					}
-					InfoCollector.instance().setFileNamePrefix("");
+					Stat.instance().setFileNamePrefix("");
 				}
 			}
 		}
@@ -87,7 +93,7 @@ public class AutoTest {
 		System.err.println("exiting.");
 		generator.stop();
 		camera.stop();
-		InfoCollector.instance().stop();
+		Stat.instance().stop();
 
 		System.exit(0);
 	}

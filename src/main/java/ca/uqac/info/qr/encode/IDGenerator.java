@@ -1,4 +1,4 @@
-package ca.uqac.info.qr.verify;
+package ca.uqac.info.qr.encode;
 
 public class IDGenerator {
 	private int id = 0;
