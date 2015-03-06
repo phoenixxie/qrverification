@@ -1,4 +1,4 @@
-package utils;
+package ca.uqac.info.qr.utils;
 
 import java.io.IOException;
 import java.io.InputStream;

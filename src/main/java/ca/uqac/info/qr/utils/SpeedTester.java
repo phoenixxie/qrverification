@@ -1,4 +1,4 @@
-package utils;
+package ca.uqac.info.qr.utils;
 
 public class SpeedTester {
 	int num = 50;

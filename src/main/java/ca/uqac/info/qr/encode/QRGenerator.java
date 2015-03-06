@@ -6,8 +6,6 @@ import java.io.InputStream;
 
 import org.apache.commons.lang3.RandomStringUtils;
 
-import utils.SpeedTester;
-
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 
 import ca.uqac.info.buffertannen.message.BitFormatException;
@@ -15,6 +13,7 @@ import ca.uqac.info.buffertannen.message.BitSequence;
 import ca.uqac.info.buffertannen.protocol.BlobSegment;
 import ca.uqac.info.buffertannen.protocol.Sender;
 import ca.uqac.info.buffertannen.protocol.Sender.SendingMode;
+import ca.uqac.info.qr.utils.SpeedTester;
 import ca.uqac.lif.qr.FrameEncoder;
 import ca.uqac.lif.qr.ZXingWriter;
 

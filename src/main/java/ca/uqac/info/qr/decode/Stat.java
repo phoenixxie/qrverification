@@ -8,7 +8,7 @@ import java.util.Date;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-import utils.SpeedTester;
+import ca.uqac.info.qr.utils.SpeedTester;
 
 public class Stat {
 

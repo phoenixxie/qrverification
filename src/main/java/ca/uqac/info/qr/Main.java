@@ -9,7 +9,6 @@ import javax.swing.JOptionPane;
 
 import org.opencv.core.Core;
 
-import utils.RandomDataGenerator;
 import ca.uqac.info.buffertannen.protocol.Receiver;
 import ca.uqac.info.buffertannen.protocol.Sender;
 import ca.uqac.info.buffertannen.protocol.Sender.SendingMode;
@@ -19,6 +18,7 @@ import ca.uqac.info.qr.decode.Stat;
 import ca.uqac.info.qr.decode.QRCollector;
 import ca.uqac.info.qr.encode.QRFrame;
 import ca.uqac.info.qr.encode.QRGenerator;
+import ca.uqac.info.qr.utils.RandomDataGenerator;
 import ca.uqac.lif.qr.FrameDecoder;
 import ca.uqac.lif.qr.FrameEncoder;
 import ca.uqac.lif.qr.FrameEncoderBinary;
