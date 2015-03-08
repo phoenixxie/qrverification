@@ -31,11 +31,9 @@ public class StatFrame extends JFrame {
 	private JButton btnReset;
 
 	private boolean isClosed;
-	private Stat stat;
+	private Stat stat = null;
 
-	public StatFrame(Stat stat) {
-		this.stat = stat;
-
+	public StatFrame() {
 		this.setTitle("QR Stat");
 
 		Container panel = getContentPane();
@@ -115,6 +113,10 @@ public class StatFrame extends JFrame {
 		new Thread(new MonitorThread()).start();
 	}
 
+	public void setStat(Stat stat) {
+		this.stat = stat;
+	}
+
 	public JTextField createTextField() {
 		JTextField f = new JTextField("0", 10);
 		f.setHorizontalAlignment(JTextField.RIGHT);
@@ -124,12 +126,25 @@ public class StatFrame extends JFrame {
 
 		return f;
 	}
+	
+	public void close() {
+		isClosed = true;
+		this.dispose();
+	}
 
 	class MonitorThread implements Runnable {
 
 		@Override
 		public void run() {
 			while (!isClosed) {
+				if (stat == null) {
+					try {
+						Thread.sleep(500);
+					} catch (InterruptedException e) {
+					}
+					continue;
+				}
+
 				int captured = stat.getCaptured();
 				int decoded = stat.getDecoded();
 				int missed = stat.getMissed();

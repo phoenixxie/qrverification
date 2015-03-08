@@ -26,71 +26,71 @@ import ca.uqac.lif.qr.FrameEncoderBinary;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 
 public class Main {
-	public static void main(String[] args) {
-		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+  public static void main(String[] args) {
+    System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
-		System.err.println("Working Directory = "
-				+ System.getProperty("user.dir"));
+    System.err.println("Working Directory = " + System.getProperty("user.dir"));
 
-		FileInputStream fis;
-		try {
-			fis = new FileInputStream(new File("Gyro-small2.jpg"));
-		} catch (FileNotFoundException e1) {
-			e1.printStackTrace();
-			return;
-		}
+    FileInputStream fis;
+    try {
+      fis = new FileInputStream(new File("Gyro-small2.jpg"));
+    } catch (FileNotFoundException e1) {
+      e1.printStackTrace();
+      return;
+    }
 
-		QRGenerator generator = new QRGenerator();
+    QRGenerator generator = new QRGenerator();
 
-		QRFrame frame = new QRFrame(generator);
-		frame.initialize(600);
+    QRFrame frame = new QRFrame(generator);
+    frame.initialize(600);
 
-		generator.setDisplay(frame);
-		generator.setInputStream(fis, 300);
-		generator.setMaxRetry(1);
-		generator.setRate(12);
-		generator.setErrorCorrectionLevel(ErrorCorrectionLevel.L);
-		generator.setWidth(600);
+    generator.setDisplay(frame);
+    generator.setInputStream(fis, 300);
+    generator.setMaxRetry(1);
+    generator.setRate(12);
+    generator.setErrorCorrectionLevel(ErrorCorrectionLevel.L);
+    generator.setWidth(600);
 
-		CameraFrame camera = new CameraFrame();
-		camera.initialize();
-		int idxConfig1 = CameraManager.instance().findConfig(1, 1920, 1080);
+    CameraFrame camera = new CameraFrame();
+    camera.initialize();
+    int idxConfig1 = CameraManager.instance().findConfig(1, 1920, 1080);
 
-		camera.setDesiredCameraConfig(idxConfig1);
-		camera.setRate(30);
-		camera.start();
+    camera.setDesiredCameraConfig(idxConfig1);
+    camera.setRate(30);
+    camera.start();
 
-		QRCollector collector = new QRCollector(camera);
+    QRCollector collector = new QRCollector(camera);
 
-		generator.start(true);
-		int times = 1;
-		long startMS = System.currentTimeMillis();
-		while (generator.running() && !camera.isClosed() && !frame.isClosed()) {
-			if (generator.completed()) {
-				generator.pause();
-				generator.rewind();
-				generator.resume();
-				
-				++times;
-				System.err.println("Retry..." + times);
-			}
-			
-			if (collector.completed()) {
-				System.err.println("Completed, used " + times + " times, " + (System.currentTimeMillis() - startMS) / 1000 + " seconds.");
-				break;
-			}
-			
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-			}
-		}
+    generator.start(true);
+    int times = 1;
+    long startMS = System.currentTimeMillis();
+    while (generator.isRunning() && !camera.isClosed() && !frame.isClosed()) {
+      if (generator.hasCompleted()) {
+        generator.pause();
+        generator.rewind();
+        generator.resume();
 
-		System.err.println("exiting.");
-		generator.stop();
-		frame.close();
-		camera.close();
+        ++times;
+        System.err.println("Retry..." + times);
+      }
 
-		System.exit(0);
-	}
+      if (collector.completed()) {
+        System.err.println("Completed, used " + times + " times, "
+            + (System.currentTimeMillis() - startMS) / 1000 + " seconds.");
+        break;
+      }
+
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException e) {
+      }
+    }
+
+    System.err.println("exiting.");
+    generator.stop();
+    frame.close();
+    camera.close();
+
+    System.exit(0);
+  }
 }

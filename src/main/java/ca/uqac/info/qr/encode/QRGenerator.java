@@ -3,6 +3,7 @@ package ca.uqac.info.qr.encode;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Random;
 
 import org.apache.commons.lang3.RandomStringUtils;
 
@@ -41,6 +42,8 @@ public class QRGenerator implements Runnable {
 	private InputStream instream = null;
 	private Sender sender;
 
+	private int maxCode = 0;
+
 	private class Stat {
 		int frames = 0;
 		int bytes = 0;
@@ -71,6 +74,13 @@ public class QRGenerator implements Runnable {
 		this.display = display;
 		this.display.setRate(rate);
 		this.display.setWidth(width);
+	}
+	
+	public void setSendingMode(SendingMode mode) {
+		this.sendingMode = mode;
+		if (sender != null) {
+			sender.setSendingMode(mode);
+		}
 	}
 
 	public void setInputStream(InputStream inStream, int frameSize) {
@@ -115,7 +125,7 @@ public class QRGenerator implements Runnable {
 		completed = false;
 	}
 
-	public boolean completed() {
+	public boolean hasCompleted() {
 		return completed;
 	}
 
@@ -137,11 +147,9 @@ public class QRGenerator implements Runnable {
 		}
 		System.err.println("qr generator is closing.");
 		running = false;
-
-		display.close();
 	}
 
-	public boolean running() {
+	public boolean isRunning() {
 		return running;
 	}
 
@@ -180,15 +188,23 @@ public class QRGenerator implements Runnable {
 		}
 	}
 
-	int maxCode = 0;
-
 	private void showCode(String code) {
 		BufferedImage img = writer.getCode(code);
-		display.showCode(img);
+		display.showImage(img);
 		if (code.length() > maxCode) {
 			maxCode = code.length();
-			System.err.println("Max code size: " + maxCode);
 		}
+	}
+	
+	public int getMaxCode() {
+		return maxCode;
+	}
+	
+	public int getUniqueFrameCount() {
+	  if (sender == null) {
+	    return 0;
+	  }
+		return sender.getNumberOfSegments();
 	}
 
 	public void run() {
@@ -199,11 +215,13 @@ public class QRGenerator implements Runnable {
 		int retry = 0;
 		int id = 0;
 		String data = null;
-		String[] prefixs = { "Z", "op", "789", "QW23", ":;{}!" };
+		String[] prefixs = { "Z", "op", "789", "QW23", ":;{}!", "987654", "abcdefg" };
 		int prefixIdx = 0;
+		
+//		showCode(RandomStringUtils.randomAlphabetic(100));
 
-		showCode(RandomStringUtils.randomAlphabetic(200));
-
+		Random rand = new Random();
+		
 		while (running) {
 			start = System.currentTimeMillis();
 
@@ -225,9 +243,12 @@ public class QRGenerator implements Runnable {
 				if (retry > maxretry) {
 					retry = 0;
 				}
-
-				String code = prefixs[prefixIdx] + " " + id + " " + data;
-				prefixIdx = (prefixIdx + 1) % prefixs.length;
+				
+				String prefix = RandomStringUtils.randomAlphabetic(rand.nextInt(10) + 1);
+				String code = prefix + " " + id + " " + data;
+				
+//				String code = prefixs[prefixIdx] + " " + id + " " + data;
+//				prefixIdx = (prefixIdx + 1) % prefixs.length;
 
 				showCode(code);
 

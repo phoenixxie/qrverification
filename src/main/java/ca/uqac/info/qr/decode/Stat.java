@@ -24,8 +24,6 @@ public class Stat {
 	private int missed = 0;
 	private int duplicated = 0;
 
-	private FileWriter csvWriter;
-	private String fileNamePrefix;
 	boolean running;
 
 	@Override
@@ -62,8 +60,6 @@ public class Stat {
 	// }
 
 	public Stat() {
-		csvWriter = null;
-		fileNamePrefix = "";
 		running = false;
 
 		reset();

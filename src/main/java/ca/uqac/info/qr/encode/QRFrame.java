@@ -23,170 +23,178 @@ import ca.uqac.lif.qr.ImagePanel;
 
 public class QRFrame extends JFrame implements QRDisplay {
 
-	private static final long serialVersionUID = 3905958539310955727L;
+  private static final long serialVersionUID = 3905958539310955727L;
 
-	static final int[] RATES = { 2, 4, 6, 8, 10, 12, 14, 16 };
+  static final int[] RATES = { 2, 4, 6, 8, 10, 12, 14, 16 };
 
-	private int width;
+  private int width;
 
-	private ImagePanel image;
-	private JComboBox<Integer> comboRates;
+  private ImagePanel image;
+  private JComboBox<Integer> comboRates;
 
-	private JTextField labelFrames;
-	private JTextField labelFPS;
-	private JTextField labelBytes;
-	private JTextField labelBPS;
-	private JButton btnStart;
+  private JTextField labelFrames;
+  private JTextField labelFPS;
+  private JTextField labelBytes;
+  private JTextField labelBPS;
+  private JButton btnStart;
 
-	private int rate;
+  private int rate;
 
-	private boolean isClosed;
-	private QRGenerator generator;
+  private boolean isClosed;
+  private QRGenerator generator = null;
 
-	public QRFrame(QRGenerator generator) {
-		this.generator = generator;
-	}
+  public QRFrame() {
+  }
 
-	private JTextField createTextField() {
-		JTextField f = new JTextField("0", 10);
-		f.setHorizontalAlignment(JTextField.RIGHT);
-		f.setEditable(false);
-		f.setBackground(Color.WHITE);
-		f.setBorder(null);
+  private JTextField createTextField() {
+    JTextField f = new JTextField("0", 10);
+    f.setHorizontalAlignment(JTextField.RIGHT);
+    f.setEditable(false);
+    f.setBackground(Color.WHITE);
+    f.setBorder(null);
 
-		return f;
-	}
+    return f;
+  }
 
-	@Override
-	public void initialize(int width) {
-		this.isClosed = false;
+  public void setGenerator(QRGenerator generator) {
+    this.generator = generator;
+    if (this.generator != null) {
+      btnStart.setEnabled(true);
+    }
+  }
 
-		this.width = width;
-		this.setTitle("QR Frame");
-		Container panel = getContentPane();
+  @Override
+  public void initialize(int width) {
+    this.isClosed = false;
 
-		panel.setBackground(Color.WHITE);
-		panel.setLayout(new MigLayout("", "[50]10[135]10[50]10[135]", "[]10[]"));
+    this.width = width;
+    this.setTitle("QR Frame");
+    Container panel = getContentPane();
 
-		image = new ImagePanel();
-		image.setPreferredSize(new Dimension(width, width));
-		image.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
-		panel.add(image, "wrap, span 4");
+    panel.setBackground(Color.WHITE);
+    panel.setLayout(new MigLayout("", "[50]10[135]10[50]10[135]", "[]10[]"));
 
-		panel.add(new JLabel("Frame:"));
-		labelFrames = createTextField();
-		panel.add(labelFrames);
-		panel.add(new JLabel("fps:"));
-		labelFPS = createTextField();
-		labelFPS.setColumns(5);
-		panel.add(labelFPS, "wrap");
+    image = new ImagePanel();
+    image.setPreferredSize(new Dimension(width, width));
+    image.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
+    panel.add(image, "wrap, span 4");
 
-		panel.add(new JLabel("bytes:"));
-		labelBytes = createTextField();
-		panel.add(labelBytes);
-		panel.add(new JLabel("bps:"));
-		labelBPS = createTextField();
-		labelBPS.setColumns(5);
-		panel.add(labelBPS, "wrap");
+    panel.add(new JLabel("Frame:"));
+    labelFrames = createTextField();
+    panel.add(labelFrames);
+    panel.add(new JLabel("fps:"));
+    labelFPS = createTextField();
+    labelFPS.setColumns(5);
+    panel.add(labelFPS, "wrap");
 
-		panel.add(new JLabel("Rate:"));
-		comboRates = new JComboBox<Integer>();
-		panel.add(comboRates, "wrap");
+    panel.add(new JLabel("bytes:"));
+    labelBytes = createTextField();
+    panel.add(labelBytes);
+    panel.add(new JLabel("bps:"));
+    labelBPS = createTextField();
+    labelBPS.setColumns(5);
+    panel.add(labelBPS, "wrap");
 
-		int selected = 0;
-		for (int i = 0; i < RATES.length; ++i) {
-			comboRates.addItem(RATES[i]);
-		}
-		comboRates.setSelectedIndex(selected);
+    panel.add(new JLabel("Rate:"));
+    comboRates = new JComboBox<Integer>();
+    panel.add(comboRates, "wrap");
 
-		btnStart = new JButton("Start");
-		panel.add(btnStart, "gaptop 10, span 4, align center, wrap");
-		super.pack();
+    int selected = 0;
+    for (int i = 0; i < RATES.length; ++i) {
+      comboRates.addItem(RATES[i]);
+    }
+    comboRates.setSelectedIndex(selected);
 
-		btnStart.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				if (generator.paused()){
-					generator.resume();
-					btnStart.setText("Pause");
-				} else {
-					generator.pause();
-					btnStart.setText("Resume");
-				}
-			}
-		});
+    btnStart = new JButton("Start");
+    panel.add(btnStart, "gaptop 10, span 4, align center, wrap");
+    btnStart.setEnabled(false);
+    
+    super.pack();
 
-		comboRates.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				rate = (Integer) comboRates.getSelectedItem();
-			}
-		});
+    btnStart.addActionListener(new ActionListener() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        if (generator.paused()) {
+          generator.resume();
+          btnStart.setText("Pause");
+        } else {
+          generator.pause();
+          btnStart.setText("Resume");
+        }
+      }
+    });
 
-		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		this.addWindowListener(new WindowAdapter() {
-			@Override
-			public void windowClosing(WindowEvent e) {
-				dispose();
-				isClosed = true;
-			}
-		});
+    comboRates.addActionListener(new ActionListener() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        rate = (Integer) comboRates.getSelectedItem();
+      }
+    });
 
-		this.setVisible(true);
-	}
+    setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+    this.addWindowListener(new WindowAdapter() {
+      @Override
+      public void windowClosing(WindowEvent e) {
+        dispose();
+        isClosed = true;
+      }
+    });
 
-	@Override
-	public void setRate(int rate) {
-		if (this.rate != rate) {
-			int i = 0;
-			for (; i < RATES.length; ++i) {
-				if (rate == RATES[i]) {
-					comboRates.setSelectedIndex(i);
-					break;
-				}
-			}
-			if (i == RATES.length) {
-				comboRates.addItem(rate);
-				comboRates.setSelectedIndex(i);
-				comboRates.setEnabled(false);
-			}
-			this.rate = rate;
-		}
-	}
+    this.setVisible(true);
+  }
 
-	@Override
-	public int getRate() {
-		return rate;
-	}
+  @Override
+  public void setRate(int rate) {
+    if (this.rate != rate) {
+      int i = 0;
+      for (; i < RATES.length; ++i) {
+        if (rate == RATES[i]) {
+          comboRates.setSelectedIndex(i);
+          break;
+        }
+      }
+      if (i == RATES.length) {
+        comboRates.addItem(rate);
+        comboRates.setSelectedIndex(i);
+        comboRates.setEnabled(false);
+      }
+      this.rate = rate;
+    }
+  }
 
-	@Override
-	public boolean isClosed() {
-		return isClosed;
-	}
+  @Override
+  public int getRate() {
+    return rate;
+  }
 
-	@Override
-	public void showCode(BufferedImage img) {
-		this.image.setImage(Scalr.resize(img, this.width));
-		this.image.repaint();
-	}
+  @Override
+  public boolean isClosed() {
+    return isClosed;
+  }
 
-	@Override
-	public void close() {
-		this.dispose();
-		this.isClosed = true;
-	}
+  @Override
+  public void showImage(BufferedImage img) {
+    this.image.setImage(Scalr.resize(img, this.width));
+    this.image.repaint();
+  }
 
-	@Override
-	public void setWidth(int width) {
-		this.width = width;
-		this.image.setPreferredSize(new Dimension(width, width));
-	}
+  @Override
+  public void close() {
+    this.dispose();
+    this.isClosed = true;
+  }
 
-	@Override
-	public void showStat(int frames, int bytes, float fps, float bps) {
-		labelFrames.setText("" + frames);
-		labelBytes.setText("" + bytes);
-		labelFPS.setText(String.format("%.1f", fps));
-		labelBPS.setText(String.format("%.1f", bps));
-	}
+  @Override
+  public void setWidth(int width) {
+    this.width = width;
+    this.image.setPreferredSize(new Dimension(width, width));
+  }
+
+  @Override
+  public void showStat(int frames, int bytes, float fps, float bps) {
+    labelFrames.setText("" + frames);
+    labelBytes.setText("" + bytes);
+    labelFPS.setText(String.format("%.1f fps", fps));
+    labelBPS.setText(String.format("%.1f bps", bps));
+  }
 }

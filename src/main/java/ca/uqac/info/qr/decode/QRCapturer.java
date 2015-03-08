@@ -11,6 +11,9 @@ public interface QRCapturer {
 	void close();
 	boolean isClosed();
 	
+	void pause();
+	void resume();
+	
 	int getRate();
 	void setRate(int rate);
 	

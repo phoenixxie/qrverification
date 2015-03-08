@@ -5,7 +5,7 @@ import java.awt.image.BufferedImage;
 public interface QRDisplay {
 	void initialize(int width);
 	
-	void showCode(BufferedImage image);
+	void showImage(BufferedImage image);
 	
 	void setWidth(int width);
 	
