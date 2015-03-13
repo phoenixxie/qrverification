@@ -11,40 +11,54 @@ import ca.uqac.info.buffertannen.protocol.Sender.SendingMode;
 import ca.uqac.lif.qr.FrameDecoder;
 import ca.uqac.lif.qr.ZXingReader;
 
-public class QRCollector implements QRCapturer.Handler {
+public class RandomStringHandler implements QRCapturer.Handler {
 
   private ZXingReader reader;
 
   private Stat stat;
   private int lastSeq;
-  private QRProcessor processor;
+  private Receiver receiver;
 
-  public QRCollector() {
+  private boolean completed = false;
+
+  public RandomStringHandler() {
     reader = new ZXingReader();
     stat = new Stat();
     lastSeq = -1;
-    processor = null;
+    receiver = new Receiver();
   }
 
   public void setStatFrame(StatFrame frame) {
     frame.setStat(stat);
   }
-  
-  public void reset() {
-    lastSeq = -1;
-    resetStat();
+
+  public boolean completed() {
+    return completed;
   }
-  
-  public void resetStat() {
-    stat.reset();
+
+  public float getProgress() {
+    boolean[] status = receiver.getBufferStatus();
+    int cnt = 0;
+    for (int i = 0; i < status.length; ++i) {
+      if (status[i]) {
+        ++cnt;
+      }
+    }
+    return (float) cnt / (float) status.length;
   }
-  
-  public String getStatCSV() {
-    return stat.toCSV();
-  }
-  
-  public void setQRProcessor(QRProcessor processor) {
-    this.processor = processor;
+
+  public int getReceived() {
+    boolean[] status = receiver.getBufferStatus();
+    if (status == null) {
+      return 0;
+    }
+    int cnt = 0;
+    for (int i = 0; i < status.length; ++i) {
+      if (status[i]) {
+        ++cnt;
+      }
+    }
+    return cnt;
   }
 
   @Override
@@ -100,12 +114,17 @@ public class QRCollector implements QRCapturer.Handler {
     if (!isMatched) {
       return;
     }
-    
+
     msg = msg.substring(end + 1);
-    if (processor == null) {
-      return;
+    receiver.putBitSequence(msg);
+
+    if (receiver.getSendingMode() == SendingMode.LAKE) {
+      float progress = getProgress();
+      if (Math.abs(progress - 1.0f) < 0.00001) {
+        completed = true;
+      }
     }
-    processor.process(msg);
+
   }
 
   @Override

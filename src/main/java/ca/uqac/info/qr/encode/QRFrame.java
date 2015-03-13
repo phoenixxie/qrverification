@@ -69,6 +69,8 @@ public class QRFrame extends JFrame implements QRDisplay {
 
     this.width = width;
     this.setTitle("QR Frame");
+    this.setAlwaysOnTop(true);
+    
     Container panel = getContentPane();
 
     panel.setBackground(Color.WHITE);

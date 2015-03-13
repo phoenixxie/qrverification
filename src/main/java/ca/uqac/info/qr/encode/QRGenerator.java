@@ -1,9 +1,12 @@
 package ca.uqac.info.qr.encode;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Random;
+
+import javax.imageio.ImageIO;
 
 import org.apache.commons.lang3.RandomStringUtils;
 
@@ -16,266 +19,238 @@ import ca.uqac.info.buffertannen.protocol.Sender;
 import ca.uqac.info.buffertannen.protocol.Sender.SendingMode;
 import ca.uqac.info.qr.utils.SpeedTester;
 import ca.uqac.lif.qr.FrameEncoder;
+import ca.uqac.lif.qr.ZXingReader;
 import ca.uqac.lif.qr.ZXingWriter;
 
 public class QRGenerator implements Runnable {
 
-	private int rate = 12;
-	private int interval;
+  private int rate = 12;
+  private int interval;
 
-	private int width = 600;
-	private ErrorCorrectionLevel level = ErrorCorrectionLevel.L;
+  private int width = 600;
+  private ErrorCorrectionLevel level = ErrorCorrectionLevel.L;
 
-	private SendingMode sendingMode = SendingMode.LAKE;
+  private int maxretry = 1;
 
-	private int maxretry = 1;
+  private Thread thread;
 
-	private Thread thread;
+  private boolean running = false;
+  private boolean pause = false;
 
-	private boolean running = false;
-	private boolean pause = false;
-	private boolean completed = false;
+  private ZXingReader reader;
+  private ZXingWriter writer;
 
-	private ZXingWriter writer;
+  private QRDisplay display = null;
 
-	private QRDisplay display = null;
-	private InputStream instream = null;
-	private Sender sender;
+  private FrameLoader frameLoader = null;
 
-	private int maxCode = 0;
+  private Random rand = new Random();
 
-	private class Stat {
-		int frames = 0;
-		int bytes = 0;
-		SpeedTester fps = new SpeedTester();
-		SpeedTester bps = new SpeedTester();
-	};
+  private int maxCode = 0;
+  private int maxRegenerate = 0;
 
-	private Stat stat;
+  private class Stat {
+    int frames = 0;
+    int bytes = 0;
+    SpeedTester fps = new SpeedTester();
+    SpeedTester bps = new SpeedTester();
+  };
 
-	public QRGenerator() {
+  private Stat stat;
 
-		interval = 1000 / rate;
+  public QRGenerator() {
 
-		writer = new ZXingWriter();
-		writer.setCodeSize(width);
-		writer.setErrorCorrectionLevel(level);
+    interval = 1000 / rate;
 
-		stat = new Stat();
+    reader = new ZXingReader();
 
-		sender = null;
-	}
+    writer = new ZXingWriter();
+    writer.setCodeSize(width);
+    writer.setErrorCorrectionLevel(level);
 
-	public void setMaxRetry(int num) {
-		this.maxretry = num;
-	}
+    stat = new Stat();
+  }
 
-	public void setDisplay(QRDisplay display) {
-		this.display = display;
-		this.display.setRate(rate);
-		this.display.setWidth(width);
-	}
-	
-	public void setSendingMode(SendingMode mode) {
-		this.sendingMode = mode;
-		if (sender != null) {
-			sender.setSendingMode(mode);
-		}
-	}
+  public void setFrameLoader(FrameLoader loader) {
+    this.frameLoader = loader;
+  }
 
-	public void setInputStream(InputStream inStream, int frameSize) {
-		if (inStream != this.instream) {
-			this.instream = inStream;
-			this.completed = false;
-			this.sender = newSender(inStream, frameSize);
-		}
-	}
+  public void setMaxRetry(int num) {
+    this.maxretry = num;
+  }
 
-	public void setWidth(int width) {
-		this.width = width;
-		writer.setCodeSize(width);
-		display.setWidth(width);
-	}
+  public void setDisplay(QRDisplay display) {
+    this.display = display;
+    this.display.setRate(rate);
+    this.display.setWidth(width);
+  }
 
-	public void setRate(int rate) {
-		if (rate == 0) {
-			return;
-		}
+  public void setWidth(int width) {
+    this.width = width;
+    writer.setCodeSize(width);
+    display.setWidth(width);
+  }
 
-		this.rate = rate;
-		this.interval = 1000 / rate;
+  public void setRate(int rate) {
+    if (rate == 0) {
+      return;
+    }
 
-		display.setRate(rate);
-	}
+    this.rate = rate;
+    this.interval = 1000 / rate;
 
-	public void setErrorCorrectionLevel(ErrorCorrectionLevel level) {
-		this.level = level;
-		writer.setErrorCorrectionLevel(level);
-	}
+    display.setRate(rate);
+  }
 
-	public void start(boolean paused) {
-		running = true;
-		this.pause = paused;
-		thread = new Thread(this);
-		thread.start();
-	}
+  public void setErrorCorrectionLevel(ErrorCorrectionLevel level) {
+    this.level = level;
+    writer.setErrorCorrectionLevel(level);
+  }
 
-	public void rewind() {
-		sender.rewind();
-		completed = false;
-	}
+  public void start(boolean paused) {
+    running = true;
+    this.pause = paused;
+    thread = new Thread(this);
+    thread.start();
+  }
 
-	public boolean hasCompleted() {
-		return completed;
-	}
+  public boolean paused() {
+    return pause;
+  }
 
-	public boolean paused() {
-		return pause;
-	}
+  public void pause() {
+    pause = true;
+  }
 
-	public void pause() {
-		pause = true;
-	}
+  public void resume() {
+    pause = false;
+  }
 
-	public void resume() {
-		pause = false;
-	}
+  public void stop() {
+    if (!running) {
+      return;
+    }
+    System.err.println("qr generator is closing.");
+    running = false;
+  }
 
-	public void stop() {
-		if (!running) {
-			return;
-		}
-		System.err.println("qr generator is closing.");
-		running = false;
-	}
+  public boolean isRunning() {
+    return running;
+  }
 
-	public boolean isRunning() {
-		return running;
-	}
+  private void showCode(String code) {
+    int retry = 0;
+    BufferedImage img = null;
 
-	private Sender newSender(InputStream inStream, int frameSize) {
-		Sender sender = new Sender();
-		sender.setSendingMode(sendingMode);
-		sender.setFrameMaxLength((frameSize + BlobSegment.getHeaderSize()) * 8);
-		sender.setLakeLoop(false);
+    while (true) {
+      img = writer.getCode(code);
+      if (code.length() > maxCode) {
+        maxCode = code.length();
+      }
 
-		byte[] frameBuffer = new byte[frameSize];
+      String verify = reader.readCode(img);
+      if (verify != null && verify.equals(code)) {
+        break;
+      }
+      
+//      try {
+//        File outputfile = new File(RandomStringUtils.randomAlphabetic(3) + ".png");
+//        ImageIO.write(img, "png", outputfile);
+//      } catch (IOException e) {
+//        e.printStackTrace();
+//      }
 
-		while (true) {
-			try {
-				int len = instream.read(frameBuffer, 0, frameSize);
-				if (len == 0) {
-					break;
-				} else if (len < 0) {
-					break;
-				}
-				sender.addBlob(new BitSequence(frameBuffer, len * 8));
-			} catch (IOException | BitFormatException e) {
-				e.printStackTrace();
-				return null;
-			}
-		}
-		return sender;
-	}
+      code = RandomStringUtils.randomAlphabetic(2) + code;
+      ++retry;
+    }
 
-	private String nextFrame(Sender sender) {
-		BitSequence frame = sender.pollBitSequence();
-		if (frame != null) {
-			return frame.toBase64();
-		} else {
-			completed = true;
-			return null;
-		}
-	}
+    display.showImage(img);
+    if (retry > maxRegenerate) {
+      maxRegenerate = retry;
+    }
+  }
 
-	private void showCode(String code) {
-		BufferedImage img = writer.getCode(code);
-		display.showImage(img);
-		if (code.length() > maxCode) {
-			maxCode = code.length();
-		}
-	}
-	
-	public int getMaxCode() {
-		return maxCode;
-	}
-	
-	public int getUniqueFrameCount() {
-	  if (sender == null) {
-	    return 0;
-	  }
-		return sender.getNumberOfSegments();
-	}
+  public int getMaxCode() {
+    return maxCode;
+  }
 
-	public void run() {
-		IDGenerator gen = new IDGenerator();
+  public int getMaxRegenerate() {
+    return maxRegenerate;
+  }
 
-		long start, end;
+  public void run() {
+    IDGenerator gen = new IDGenerator();
 
-		int retry = 0;
-		int id = 0;
-		String data = null;
-		String[] prefixs = { "Z", "op", "789", "QW23", ":;{}!", "987654", "abcdefg" };
-		int prefixIdx = 0;
-		
-//		showCode(RandomStringUtils.randomAlphabetic(100));
+    long start, end;
 
-		Random rand = new Random();
-		
-		while (running) {
-			start = System.currentTimeMillis();
+    int retry = 0;
+    int id = 0;
+    String data = null;
+    // String[] prefixs = { "Z", "op", "789", "QW23"};
+    // int prefixIdx = 0;
 
-			int rate = display.getRate();
-			if (rate != this.rate) {
-				this.setRate(rate);
-			}
+    // showCode(RandomStringUtils.randomAlphabetic(100));
 
-			if (!pause) {
-				if (retry == 0) {
-					data = nextFrame(sender);
-					if (data == null) {
-						continue;
-					}
-					id = gen.id();
-				}
+    int siglen = rand.nextInt(4) + 1;
+    while (running) {
+      start = System.currentTimeMillis();
 
-				++retry;
-				if (retry > maxretry) {
-					retry = 0;
-				}
-				
-				String prefix = RandomStringUtils.randomAlphabetic(rand.nextInt(10) + 1);
-				String code = prefix + " " + id + " " + data;
-				
-//				String code = prefixs[prefixIdx] + " " + id + " " + data;
-//				prefixIdx = (prefixIdx + 1) % prefixs.length;
+      int rate = display.getRate();
+      if (rate != this.rate) {
+        this.setRate(rate);
+      }
 
-				showCode(code);
+      if (!pause && frameLoader != null) {
+        if (retry == 0) {
+          data = frameLoader.nextFrame();
+          if (data == null) {
+            try {
+              Thread.sleep(50);
+            } catch (InterruptedException e) {
+            }
+            continue;
+          }
+          id = gen.id();
+          siglen = rand.nextInt(5) + 1;
+        }
 
-				++stat.frames;
-				stat.bytes += code.length();
-				stat.fps.add(1);
-				stat.bps.add(code.length());
+        ++retry;
+        if (retry > maxretry) {
+          retry = 0;
+        }
 
-				display.showStat(stat.frames, stat.bytes, stat.fps.speed(),
-						stat.bps.speed() * 8.0f);
-			}
+        // String code = prefixs[prefixIdx] + " " + id + " " + data;
+        // prefixIdx = (prefixIdx + 1) % prefixs.length;
+        String code = RandomStringUtils.randomAlphabetic(siglen) + " " + id
+            + " " + data;
+        siglen += 2;
 
-			end = System.currentTimeMillis();
-			end -= start;
-			int intval = interval;
-			if (maxretry > 0) {
-				intval /= (maxretry + 1);
-			}
-			try {
-				if (end < intval) {
-					Thread.sleep(intval - end);
-				}
-			} catch (InterruptedException e) {
-			}
-		}
-		running = false;
+        showCode(code);
+        
+        ++stat.frames;
+        stat.bytes += code.length();
+        stat.fps.add(1);
+        stat.bps.add(code.length());
 
-		System.err.println("QR generator thread stopped.");
-	}
+        display.showStat(stat.frames, stat.bytes, stat.fps.speed(),
+            stat.bps.speed() * 8.0f);
+      }
+
+      end = System.currentTimeMillis();
+      end -= start;
+      int intval = interval;
+      if (maxretry > 0) {
+        intval /= (maxretry + 1);
+      }
+      try {
+        if (end < intval) {
+          Thread.sleep(intval - end);
+        }
+      } catch (InterruptedException e) {
+      }
+    }
+    running = false;
+
+    System.err.println("QR generator thread stopped.");
+  }
 }

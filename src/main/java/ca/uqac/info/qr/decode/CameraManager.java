@@ -39,14 +39,14 @@ public class CameraManager {
 
 	private List<Config> cameraConfigs;
 	private int maxIndex;
-	
+
 	private static CameraManager instance = null;
-	
+
 	public static CameraManager instance() {
 		if (instance == null) {
 			instance = new CameraManager();
 		}
-		
+
 		return instance;
 	}
 
@@ -58,17 +58,17 @@ public class CameraManager {
 
 	private void testResolution(VideoCapture camera, int index, int newWidth,
 			int newHeight) {
-		if (camera.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, newWidth)
-				&& camera.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, newHeight)) {
-			double width = camera.get(Highgui.CV_CAP_PROP_FRAME_WIDTH);
-			double height = camera.get(Highgui.CV_CAP_PROP_FRAME_HEIGHT);
 
-			if (Math.abs(width - newWidth) < 0.0001
-					&& Math.abs(height - newHeight) < 0.0001) {
-				Config config = new Config(index, newWidth,
-						newHeight);
-				cameraConfigs.add(config);
-			}
+		camera.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, newWidth);
+		camera.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, newHeight);
+
+		double width = camera.get(Highgui.CV_CAP_PROP_FRAME_WIDTH);
+		double height = camera.get(Highgui.CV_CAP_PROP_FRAME_HEIGHT);
+
+		if (Math.abs(width - newWidth) < 0.0001
+				&& Math.abs(height - newHeight) < 0.0001) {
+			Config config = new Config(index, newWidth, newHeight);
+			cameraConfigs.add(config);
 		}
 	}
 
@@ -94,6 +94,7 @@ public class CameraManager {
 			camera.release();
 			++maxIndex;
 		}
+
 	}
 
 	public List<Config> getConfigs() {
@@ -103,15 +104,14 @@ public class CameraManager {
 	public int findConfig(int index, int width, int height) {
 		int n = 0;
 		for (Config c : cameraConfigs) {
-			if (c.index == index && c.width == width
-					&& c.height == height) {
+			if (c.index == index && c.width == width && c.height == height) {
 				return n;
 			}
 			++n;
 		}
-		return n;
+		return -1;
 	}
-	
+
 	public Config getConfig(int n) {
 		if (n >= cameraConfigs.size()) {
 			return null;

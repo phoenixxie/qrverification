@@ -12,34 +12,29 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 import javax.imageio.ImageIO;
-import javax.swing.JOptionPane;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.opencv.core.Core;
 
-import ca.uqac.info.buffertannen.protocol.Receiver;
-import ca.uqac.info.buffertannen.protocol.Sender;
 import ca.uqac.info.buffertannen.protocol.Sender.SendingMode;
+import ca.uqac.info.qr.decode.BufferTannenQRProcessor;
 import ca.uqac.info.qr.decode.CameraFrame;
 import ca.uqac.info.qr.decode.CameraManager;
-import ca.uqac.info.qr.decode.Stat;
 import ca.uqac.info.qr.decode.QRCollector;
 import ca.uqac.info.qr.decode.StatFrame;
+import ca.uqac.info.qr.encode.BufferTannenFrameLoader;
 import ca.uqac.info.qr.encode.QRFrame;
 import ca.uqac.info.qr.encode.QRGenerator;
-import ca.uqac.info.qr.utils.RandomDataGenerator;
-import ca.uqac.lif.qr.FrameDecoder;
-import ca.uqac.lif.qr.FrameEncoder;
-import ca.uqac.lif.qr.FrameEncoderBinary;
 
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 
 public class LakeTest {
-  static final int[] SIZE = { 300, 350, 400, 450, 500 };
-  static final int[] RATE = { 8, 10, 12 };
+  static final int[] SIZE = { 200, 250, 300, 350, 400, 450, 500 };
+  static final int[] RATE = { 4, 6, 8, 10, 12 };
+  // static final int[] SIZE = { 200 };
+  // static final int[] RATE = { 12 };
   static final int[] MAXRETRY = { 1, 2 };
-  static final int TIMES = 10;
+  static final int TIMES = 20;
 
   public static void main(String[] args) {
     System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
@@ -53,7 +48,7 @@ public class LakeTest {
 
     CameraFrame cameraFrame = new CameraFrame();
     cameraFrame.initialize();
-    int idxConfig1 = CameraManager.instance().findConfig(1, 1920, 1080);
+    int idxConfig1 = CameraManager.instance().findConfig(0, 1920, 1080);
     cameraFrame.setDesiredCameraConfig(idxConfig1);
     cameraFrame.setRate(30);
     cameraFrame.start();
@@ -82,6 +77,10 @@ public class LakeTest {
     outer: for (int size : SIZE) {
       for (int rate : RATE) {
         for (int maxretry : MAXRETRY) {
+
+          if (maxretry == 2 && rate >= 10) {
+            continue;
+          }
 
           System.err.println("Phase " + i + ": size " + size + ", rate " + rate
               + ", maxretry " + maxretry);
@@ -112,11 +111,13 @@ public class LakeTest {
               e1.printStackTrace();
               return;
             }
+            
+            BufferTannenFrameLoader loader = new BufferTannenFrameLoader(fis, size);
+            loader.setSendingMode(SendingMode.LAKE);
 
             QRGenerator generator = new QRGenerator();
             generator.setDisplay(qrFrame);
-            generator.setSendingMode(SendingMode.LAKE);
-            generator.setInputStream(fis, size);
+            generator.setFrameLoader(loader);
             generator.setMaxRetry(maxretry);
             generator.setRate(rate);
             generator.setErrorCorrectionLevel(ErrorCorrectionLevel.L);
@@ -124,8 +125,12 @@ public class LakeTest {
 
             qrFrame.setGenerator(generator);
 
-            QRCollector collector = new QRCollector(cameraFrame);
+            QRCollector collector = new QRCollector();
+            cameraFrame.setHandler(collector);
             collector.setStatFrame(statFrame);
+            
+            BufferTannenQRProcessor processor = new BufferTannenQRProcessor();
+            collector.setQRProcessor(processor);
 
             long timeStart = System.currentTimeMillis();
             if (isfirst) {
@@ -136,16 +141,26 @@ public class LakeTest {
             }
 
             int times = 1;
-            while (true) {              
-              if (collector.completed()) {
+            while (true) {
+              if (processor.hasCompleted()) {
                 break;
               }
-              
-              if (generator.hasCompleted()) {
+
+              if (loader.hasCompleted()) {
                 generator.pause();
-                generator.rewind();
+                loader.rewind();
                 generator.resume();
 
+                try {
+                  Thread.sleep(300);
+                } catch (InterruptedException e) {
+                }
+
+                if (processor.hasCompleted()) {
+                  break;
+                }
+
+                System.err.print(".");
                 ++times;
               }
 
@@ -159,28 +174,33 @@ public class LakeTest {
               } catch (InterruptedException e) {
               }
             }
-            
+
+            System.err.println();
+
             try {
               fis.close();
             } catch (IOException e1) {
             }
             generator.stop();
 
-            long timeSpent = System.currentTimeMillis() - timeStart;
+            float timeSpent = (System.currentTimeMillis() - timeStart) / 1000.0f;
 
             try {
               Thread.sleep(1000);
             } catch (InterruptedException e) {
             }
 
-            System.err.println("Used " + times + " times");
+            System.err.println("Used " + times + " times," + timeSpent
+                + " seconds");
             System.err.println("Max size of frame: " + generator.getMaxCode());
+            System.err.println("Max times of regeneration: "
+                + generator.getMaxRegenerate());
 
             try {
               csvWriter.write(StringUtils.join(
-                  new String[] { "" + times,
-                      "" + ((float) timeSpent / 1000.0f),
-                      "" + generator.getMaxCode(), }, ",")
+                  new String[] { "" + times, "" + timeSpent,
+                      "" + generator.getMaxCode(),
+                      "" + generator.getMaxRegenerate() }, ",")
                   + "\r\n");
               csvWriter.flush();
             } catch (IOException e) {
@@ -193,7 +213,7 @@ public class LakeTest {
           } catch (IOException e) {
             e.printStackTrace();
           }
-          
+
           ++i;
         }
       }
